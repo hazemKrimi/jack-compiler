@@ -1,8 +1,9 @@
 package tokenizer
 
 import (
-	"fmt"
+	"bufio"
 	"regexp"
+	"slices"
 )
 
 type TokenType int
@@ -15,7 +16,7 @@ const (
 	IDENTIFIER
 )
 
-var KEYWORDS = [...]string{
+var KEYWORDS = []string{
 	"class",
 	"constructor",
 	"function",
@@ -24,7 +25,7 @@ var KEYWORDS = [...]string{
 	"static",
 	"var",
 	"int",
-	"char",
+	"read",
 	"boolean",
 	"void",
 	"true",
@@ -39,7 +40,7 @@ var KEYWORDS = [...]string{
 	"return",
 }
 
-var SYMBOLS = [...]string{
+var SYMBOLS = []string{
 	"{",
 	"}",
 	"(",
@@ -66,17 +67,61 @@ type Token struct {
 	Type  TokenType
 }
 
-func ExtractTokens(tokens *[]Token, source []byte) error {
-	i := 0
+func ExtractTokens(tokens *[]Token, reader *bufio.Reader) error {
+	read := ""
+	buf := []byte{}
 
-	for i < len(source) {
-		t := string(source[i])
+	for {
+		_, err := reader.Read(buf)
+		read += string(buf)
 
-		if match, _ := regexp.MatchString("^[[:space:]]$", t); match {
-			i++
-		} else {
-			fmt.Println(t)
-			i++
+		if err != nil {
+			return err
+		}
+
+		if match, _ := regexp.MatchString("^[[:space:]]$", read); match {
+			continue
+		}
+
+		if read == "/" {
+			next, err := reader.ReadByte()
+
+			if err != nil {
+				return err
+			}
+
+			if string(next) == "/" || string(next) == "*" {
+				_, err := reader.ReadBytes('/')
+
+				if err != nil {
+					return err
+				}
+			} else {
+				*tokens = append(*tokens, Token{Value: read, Type: SYMBOL})
+				read = ""
+
+				err := reader.UnreadByte()
+
+				if err != nil {
+					return err
+				}
+
+				continue
+			}
+		}
+
+		if slices.Contains(SYMBOLS, read) {
+			*tokens = append(*tokens, Token{Value: read, Type: SYMBOL})
+			read = ""
+
+			continue
+		}
+
+		if slices.Contains(KEYWORDS, read) {
+			*tokens = append(*tokens, Token{Value: read, Type: KEYWORD})
+			read = ""
+
+			continue
 		}
 	}
 

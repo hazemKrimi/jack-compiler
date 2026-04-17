@@ -1,17 +1,20 @@
 package main
 
 import (
+	"bufio"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
 	"strings"
 
+	"github.com/hazemKrimi/jack-compiler/internal/parser"
 	"github.com/hazemKrimi/jack-compiler/internal/tokenizer"
 )
 
 func process(inputPath string) error {
-	source, err := os.ReadFile(inputPath)
+	file, err := os.Open(inputPath)
+	reader := bufio.NewReader(file)
 
 	if err != nil {
 		return err
@@ -19,13 +22,14 @@ func process(inputPath string) error {
 
 	tokens := make([]tokenizer.Token, 0, 1000)
 
-	if err := tokenizer.ExtractTokens(&tokens, source); err != nil {
+	if err := tokenizer.ExtractTokens(&tokens, reader); err != nil {
 		return err
 	}
 
+	parsed := parser.ParseTokens(tokens)
 	outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
 
-	if err := os.WriteFile(outputPath, source, 0644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(parsed), 0644); err != nil {
 		return err
 	}
 
