@@ -24,7 +24,7 @@ The result `.vm` file will be written in the same location as the source file.
 
 ## Build
 
-- To build this project run the following command:
+To build this project run the following command:
 
 ```
 go build -o out
