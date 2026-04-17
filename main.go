@@ -1,23 +1,26 @@
 package main
 
 import (
-	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"regexp"
-	// "strings"
+	"strings"
 )
 
-func process(inputPath string) {
-	// outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
+func process(inputPath string) error {
+	outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
 	source, err := os.ReadFile(inputPath)
 
 	if err != nil {
-		panic(err)
+		return err
 	}
 
-	fmt.Println(string(source))
+	if err := os.WriteFile(outputPath, source, 0644); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 func walker(path string, entry fs.DirEntry, err error) error {
@@ -26,7 +29,7 @@ func walker(path string, entry fs.DirEntry, err error) error {
 	}
 
 	if match, _ := regexp.MatchString(".+\\.jack$", path); match {
-		process(path)
+		return process(path)
 	}
 
 	return nil
@@ -59,5 +62,7 @@ func main() {
 		panic("You must provide a path for a Jack file or a directory that contains Jack files to compile!")
 	}
 
-	process(args[1])
+	if err := process(args[1]); err != nil {
+		panic(err)
+	}
 }
