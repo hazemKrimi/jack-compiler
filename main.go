@@ -6,15 +6,24 @@ import (
 	"path/filepath"
 	"regexp"
 	"strings"
+
+	"github.com/hazemKrimi/jack-compiler/internal/tokenizer"
 )
 
 func process(inputPath string) error {
-	outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
 	source, err := os.ReadFile(inputPath)
 
 	if err != nil {
 		return err
 	}
+
+	tokens := make([]tokenizer.Token, 0, 1000)
+
+	if err := tokenizer.ExtractTokens(&tokens, source); err != nil {
+		return err
+	}
+
+	outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
 
 	if err := os.WriteFile(outputPath, source, 0644); err != nil {
 		return err
