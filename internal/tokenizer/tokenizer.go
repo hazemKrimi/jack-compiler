@@ -14,9 +14,9 @@ type TokenType int
 const (
 	KEYWORD TokenType = iota
 	SYMBOL
+	IDENTIFIER
 	INT_CONST
 	STR_CONST
-	IDENTIFIER
 )
 
 var KEYWORDS = []string{
