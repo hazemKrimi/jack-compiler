@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hazemKrimi/jack-compiler/internal/parser"
+	"github.com/hazemKrimi/jack-compiler/internal/compilation-engine"
 	"github.com/hazemKrimi/jack-compiler/internal/tokenizer"
 )
 
@@ -26,7 +26,12 @@ func process(inputPath string) error {
 		return err
 	}
 
-	parsed := parser.ParseTokens(tokens)
+	parsed, err := parser.ParseTokens(tokens)
+	
+	if err != nil {
+		return err
+	}
+
 	outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
 
 	if err := os.WriteFile(outputPath, []byte(parsed), 0644); err != nil {
