@@ -81,7 +81,7 @@ func compileParameterList(output *strings.Builder, tokens []tokenizer.Token, ind
 	*(index)++
 
 	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
-		output.WriteString("<keyword> " + tokens[*index].Value + " </keyword>\n")
+		output.WriteString("<symbol> " + tokens[*index].Value + " </symbol>\n")
 		*(index)++
 
 		return compileParameterList(output, tokens, index)
@@ -94,6 +94,8 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "var" {
 		return nil
 	}
+
+	output.WriteString("<varDec>\n")
 
 	output.WriteString("<keyword> " + tokens[*index].Value + " </keyword>\n")
 	*(index)++
@@ -135,6 +137,8 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 
 	output.WriteString("<symbol> " + tokens[*index].Value + " </symbol>\n")
 	(*index)++
+
+	output.WriteString("</varDec>\n")
 
 	return compileVariableDeclaration(output, tokens, index)
 }
@@ -500,13 +504,9 @@ func compileStatements(output *strings.Builder, tokens []tokenizer.Token, index 
 
 func compileSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type == tokenizer.KEYWORD && tokens[*index].Value == "var" {
-		output.WriteString("<varDec>\n")
-
 		if err := compileVariableDeclaration(output, tokens, index); err != nil {
 			return err
 		}
-
-		output.WriteString("</varDec>\n")
 	}
 
 	output.WriteString("<statements>\n")
