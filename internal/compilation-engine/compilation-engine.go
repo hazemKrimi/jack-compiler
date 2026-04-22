@@ -121,22 +121,128 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 	return compileVariableDeclaration(output, tokens, index)
 }
 
-func compileExpression(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
-	if !slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER, tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) && !slices.Contains([]string{"true", "false", "null", "this"}, tokens[*index].Value) {
-		return errors.New("Invalid expression!")
+func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+
+	if tokens[*index].Value == "." {
+		WriteToken(output, tokens[*index], index)
+
+		if tokens[*index].Type != tokenizer.IDENTIFIER {
+			return errors.New("Invalid subroutine name!")
+		}
+
+		WriteToken(output, tokens[*index], index)
 	}
 
-	output.WriteString("<expression>\n")
-	output.WriteString("<term>\n")
+	if tokens[*index].Value != "(" {
+		return errors.New("Missing subroutine call opening parenthese!")
+	}
+
 	WriteToken(output, tokens[*index], index)
-	output.WriteString("</term>\n")
+
+	output.WriteString("<expressionList>\n")
+
+	if err := compileExpressionList(output, tokens, index); err != nil {
+		return err
+	}
+
+	output.WriteString("</expressionList>\n")
+
+	if tokens[*index].Value != ")" {
+		return errors.New("Missing subroutine call closing parenthese!")
+	}
+
+	WriteToken(output, tokens[*index], index)
+
+	return nil
+}
+
+func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+	output.WriteString("<term>\n")
+
+	if tokens[*index].Type == tokenizer.SYMBOL && slices.Contains([]string{"-", "~"}, tokens[*index].Value) {
+		WriteToken(output, tokens[*index], index)
+
+		if err := compileTerm(output, tokens, index); err != nil {
+			return err
+		}
+
+		output.WriteString("</term>\n")
+		return nil
+	}
+
+	if slices.Contains([]tokenizer.TokenType{tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) || slices.Contains([]string{"true", "false", "null", "this"}, tokens[*index].Value) {
+		WriteToken(output, tokens[*index], index)
+		output.WriteString("</term>\n")
+
+		return nil
+	}
+
+	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "(" {
+		WriteToken(output, tokens[*index], index)
+
+		if err := compileExpression(output, tokens, index); err != nil {
+			return err
+		}
+
+		if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ")" {
+			return errors.New("Invalid term!")
+		}
+
+		WriteToken(output, tokens[*index], index)
+		output.WriteString("</term>\n")
+
+		return nil
+	}
+
+	if tokens[*index].Type == tokenizer.IDENTIFIER {
+		WriteToken(output, tokens[*index], index)
+
+		if tokens[*index].Value == "[" {
+			WriteToken(output, tokens[*index], index)
+
+			if err := compileExpression(output, tokens, index); err != nil {
+				return err
+			}
+
+			if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "]" {
+				return errors.New("Invalid term!")
+			}
+
+			WriteToken(output, tokens[*index], index)
+		} else if slices.Contains([]string{"(", "."}, tokens[*index].Value) {
+			if err := compileSubroutineCall(output, tokens, index); err != nil {
+				return err
+			}
+		}
+
+		output.WriteString("</term>\n")
+	}
+
+	return nil
+}
+
+func compileExpression(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+	output.WriteString("<expression>\n")
+
+	if err := compileTerm(output, tokens, index); err != nil {
+		return err
+	}
+
+	if slices.Contains([]string{"+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "="}, tokens[*index].Value) {
+		WriteToken(output, tokens[*index], index)
+
+		if err := compileTerm(output, tokens, index); err != nil {
+			return err
+		}
+	}
+
 	output.WriteString("</expression>\n")
 
 	return nil
 }
 
 func compileExpressionList(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
-	if slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER, tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) || slices.Contains([]string{"true", "false", "null", "this"}, tokens[*index].Value) {
+	if slices.Contains([]tokenizer.TokenType{tokenizer.IDENTIFIER, tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) || slices.Contains([]string{"true", "false", "null", "this", "~", "-", "("}, tokens[*index].Value) {
 		if err := compileExpression(output, tokens, index); err != nil {
 			return err
 		}
@@ -165,6 +271,20 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 	}
 
 	WriteToken(output, tokens[*index], index)
+
+	if tokens[*index].Value == "[" {
+		WriteToken(output, tokens[*index], index)
+
+		if err := compileExpression(output, tokens, index); err != nil {
+			return err
+		}
+
+		if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "]" {
+			return errors.New("Invalid expression!")
+		}
+
+		WriteToken(output, tokens[*index], index)
+	}
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "=" {
 		return errors.New("Missing assignment!")
@@ -324,35 +444,9 @@ func compileDoStatement(output *strings.Builder, tokens []tokenizer.Token, index
 
 	WriteToken(output, tokens[*index], index)
 
-	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "." {
-		WriteToken(output, tokens[*index], index)
-
-		if tokens[*index].Type != tokenizer.IDENTIFIER {
-			return errors.New("Invalid variable name!")
-		}
-
-		WriteToken(output, tokens[*index], index)
-	}
-
-	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "(" {
-		return errors.New("Missing subroutine call opening parenthese!")
-	}
-
-	WriteToken(output, tokens[*index], index)
-
-	output.WriteString("<expressionList>\n")
-
-	if err := compileExpressionList(output, tokens, index); err != nil {
+	if err := compileSubroutineCall(output, tokens, index); err != nil {
 		return err
 	}
-
-	output.WriteString("</expressionList>\n")
-
-	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ")" {
-		return errors.New("Missing subroutine call closing parenthese!")
-	}
-
-	WriteToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ";" {
 		return errors.New("Missing semicolon!")
@@ -478,7 +572,6 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 		return errors.New("Missing subroutine closing parenthese!")
 	}
 
-	
 	WriteToken(output, tokens[*index], index)
 	output.WriteString("<subroutineBody>\n")
 
