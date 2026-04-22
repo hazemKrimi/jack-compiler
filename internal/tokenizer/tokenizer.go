@@ -69,6 +69,37 @@ var SYMBOLS = []string{
 type Token struct {
 	Value string
 	Type  TokenType
+	XML   string
+}
+
+func NewToken(value string, tokenType TokenType) Token {
+	switch tokenType {
+	case SYMBOL:
+		var symbol string
+
+		switch value {
+		case "<":
+			symbol = "&lt;"
+		case ">":
+			symbol = "&gt;"
+		case "&":
+			symbol = "&amp;"
+		default:
+			symbol = value
+		}
+
+		return Token{Value: symbol, Type: tokenType, XML: "symbol"}
+	case KEYWORD:
+		return Token{Value: value, Type: tokenType, XML: "keyword"}
+	case IDENTIFIER:
+		return Token{Value: value, Type: tokenType, XML: "identifier"}
+	case INT_CONST:
+		return Token{Value: value, Type: tokenType, XML: "integerConstant"}
+	case STR_CONST:
+		return Token{Value: value, Type: tokenType, XML: "stringConstant"}
+	default:
+		return Token{Value: value, Type: tokenType, XML: "token"}
+	}
 }
 
 func isDigit(text string) (bool, error) {
@@ -188,9 +219,9 @@ func ExtractTokens(tokens *[]Token, reader *bufio.Reader) error {
 				read := string(buf)
 
 				if slices.Contains(KEYWORDS, read) {
-					*tokens = append(*tokens, Token{Value: read, Type: KEYWORD})
+					*tokens = append(*tokens, NewToken(read, KEYWORD))
 				} else {
-					*tokens = append(*tokens, Token{Value: read, Type: IDENTIFIER})
+					*tokens = append(*tokens, NewToken(read, IDENTIFIER))
 				}
 
 				buf = nil
@@ -243,7 +274,7 @@ func ExtractTokens(tokens *[]Token, reader *bufio.Reader) error {
 					}
 				}
 
-				*tokens = append(*tokens, Token{Value: integerConstant.String(), Type: INT_CONST})
+				*tokens = append(*tokens, NewToken(integerConstant.String(), INT_CONST))
 				continue
 			}
 		}
@@ -257,7 +288,7 @@ func ExtractTokens(tokens *[]Token, reader *bufio.Reader) error {
 				return err
 			}
 
-			*tokens = append(*tokens, Token{Value: string(b[:len(b)-1]), Type: STR_CONST})
+			*tokens = append(*tokens, NewToken(string(b[:len(b)-1]), STR_CONST))
 			continue
 		}
 
@@ -266,15 +297,15 @@ func ExtractTokens(tokens *[]Token, reader *bufio.Reader) error {
 				read := string(buf)
 
 				if slices.Contains(KEYWORDS, read) {
-					*tokens = append(*tokens, Token{Value: read, Type: KEYWORD})
+					*tokens = append(*tokens, NewToken(read, KEYWORD))
 				} else {
-					*tokens = append(*tokens, Token{Value: read, Type: IDENTIFIER})
+					*tokens = append(*tokens, NewToken(read, IDENTIFIER))
 				}
 
 				buf = nil
 			}
 
-			*tokens = append(*tokens, Token{Value: text, Type: SYMBOL})
+			*tokens = append(*tokens, NewToken(text, SYMBOL))
 
 			continue
 		}
