@@ -8,7 +8,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/hazemKrimi/jack-compiler/internal/compilation-engine"
+	"github.com/hazemKrimi/jack-compiler/internal/parser"
 	"github.com/hazemKrimi/jack-compiler/internal/tokenizer"
 )
 
