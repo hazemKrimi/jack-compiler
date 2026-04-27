@@ -18,7 +18,7 @@ func WriteToken(output *strings.Builder, token tokenizer.Token, index *int) erro
 	return nil
 }
 
-func parseClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || !slices.Contains([]string{"static", "field"}, tokens[*index].Value) {
 		return nil
 	}
@@ -55,10 +55,10 @@ func parseClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index *
 	WriteToken(output, tokens[*index], index)
 	output.WriteString("</classVarDec>\n")
 
-	return parseClassVarDec(output, tokens, index)
+	return compileClassVarDec(output, tokens, index)
 }
 
-func parseParameterList(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileParameterList(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if !slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER}, tokens[*index].Type) || !slices.Contains([]string{"int", "char", "boolean"}, tokens[*index].Value) {
 		return nil
 	}
@@ -74,13 +74,13 @@ func parseParameterList(output *strings.Builder, tokens []tokenizer.Token, index
 	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
 		WriteToken(output, tokens[*index], index)
 
-		return parseParameterList(output, tokens, index)
+		return compileParameterList(output, tokens, index)
 	}
 
 	return nil
 }
 
-func parseVariableDeclaration(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "var" {
 		return nil
 	}
@@ -118,10 +118,10 @@ func parseVariableDeclaration(output *strings.Builder, tokens []tokenizer.Token,
 	WriteToken(output, tokens[*index], index)
 	output.WriteString("</varDec>\n")
 
-	return parseVariableDeclaration(output, tokens, index)
+	return compileVariableDeclaration(output, tokens, index)
 }
 
-func parseSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 
 	if tokens[*index].Value == "." {
 		WriteToken(output, tokens[*index], index)
@@ -141,7 +141,7 @@ func parseSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, inde
 
 	output.WriteString("<expressionList>\n")
 
-	if err := parseExpressionList(output, tokens, index); err != nil {
+	if err := compileExpressionList(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -156,13 +156,13 @@ func parseSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, inde
 	return nil
 }
 
-func parseTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	output.WriteString("<term>\n")
 
 	if tokens[*index].Type == tokenizer.SYMBOL && slices.Contains([]string{"-", "~"}, tokens[*index].Value) {
 		WriteToken(output, tokens[*index], index)
 
-		if err := parseTerm(output, tokens, index); err != nil {
+		if err := compileTerm(output, tokens, index); err != nil {
 			return err
 		}
 
@@ -180,7 +180,7 @@ func parseTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) er
 	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "(" {
 		WriteToken(output, tokens[*index], index)
 
-		if err := parseExpression(output, tokens, index); err != nil {
+		if err := compileExpression(output, tokens, index); err != nil {
 			return err
 		}
 
@@ -200,7 +200,7 @@ func parseTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) er
 		if tokens[*index].Value == "[" {
 			WriteToken(output, tokens[*index], index)
 
-			if err := parseExpression(output, tokens, index); err != nil {
+			if err := compileExpression(output, tokens, index); err != nil {
 				return err
 			}
 
@@ -210,7 +210,7 @@ func parseTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) er
 
 			WriteToken(output, tokens[*index], index)
 		} else if slices.Contains([]string{"(", "."}, tokens[*index].Value) {
-			if err := parseSubroutineCall(output, tokens, index); err != nil {
+			if err := compileSubroutineCall(output, tokens, index); err != nil {
 				return err
 			}
 		}
@@ -221,17 +221,17 @@ func parseTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) er
 	return nil
 }
 
-func parseExpression(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileExpression(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	output.WriteString("<expression>\n")
 
-	if err := parseTerm(output, tokens, index); err != nil {
+	if err := compileTerm(output, tokens, index); err != nil {
 		return err
 	}
 
 	if slices.Contains([]string{"+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "="}, tokens[*index].Value) {
 		WriteToken(output, tokens[*index], index)
 
-		if err := parseTerm(output, tokens, index); err != nil {
+		if err := compileTerm(output, tokens, index); err != nil {
 			return err
 		}
 	}
@@ -241,23 +241,23 @@ func parseExpression(output *strings.Builder, tokens []tokenizer.Token, index *i
 	return nil
 }
 
-func parseExpressionList(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileExpressionList(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if slices.Contains([]tokenizer.TokenType{tokenizer.IDENTIFIER, tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) || slices.Contains([]string{"true", "false", "null", "this", "~", "-", "("}, tokens[*index].Value) {
-		if err := parseExpression(output, tokens, index); err != nil {
+		if err := compileExpression(output, tokens, index); err != nil {
 			return err
 		}
 
 		if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
 			WriteToken(output, tokens[*index], index)
 
-			return parseExpressionList(output, tokens, index)
+			return compileExpressionList(output, tokens, index)
 		}
 	}
 
 	return nil
 }
 
-func parseLetStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "let" {
 		return errors.New("Invalid let statement!")
 	}
@@ -275,7 +275,7 @@ func parseLetStatement(output *strings.Builder, tokens []tokenizer.Token, index 
 	if tokens[*index].Value == "[" {
 		WriteToken(output, tokens[*index], index)
 
-		if err := parseExpression(output, tokens, index); err != nil {
+		if err := compileExpression(output, tokens, index); err != nil {
 			return err
 		}
 
@@ -292,7 +292,7 @@ func parseLetStatement(output *strings.Builder, tokens []tokenizer.Token, index 
 
 	WriteToken(output, tokens[*index], index)
 
-	if err := parseExpression(output, tokens, index); err != nil {
+	if err := compileExpression(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -306,7 +306,7 @@ func parseLetStatement(output *strings.Builder, tokens []tokenizer.Token, index 
 	return nil
 }
 
-func parseIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "if" {
 		return errors.New("Invalid if statement!")
 	}
@@ -321,7 +321,7 @@ func parseIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *
 
 	WriteToken(output, tokens[*index], index)
 
-	if err := parseExpression(output, tokens, index); err != nil {
+	if err := compileExpression(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -339,7 +339,7 @@ func parseIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *
 
 	output.WriteString("<statements>\n")
 
-	if err := parseStatements(output, tokens, index); err != nil {
+	if err := compileStatements(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -361,7 +361,7 @@ func parseIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *
 		WriteToken(output, tokens[*index], index)
 		output.WriteString("<statements>\n")
 
-		if err := parseStatements(output, tokens, index); err != nil {
+		if err := compileStatements(output, tokens, index); err != nil {
 			return err
 		}
 
@@ -379,7 +379,7 @@ func parseIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *
 	return nil
 }
 
-func parseWhileStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "while" {
 		return errors.New("Invalid while statement!")
 	}
@@ -394,7 +394,7 @@ func parseWhileStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 
 	WriteToken(output, tokens[*index], index)
 
-	if err := parseExpression(output, tokens, index); err != nil {
+	if err := compileExpression(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -412,7 +412,7 @@ func parseWhileStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 
 	output.WriteString("<statements>\n")
 
-	if err := parseStatements(output, tokens, index); err != nil {
+	if err := compileStatements(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -429,7 +429,7 @@ func parseWhileStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 	return nil
 }
 
-func parseDoStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileDoStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "do" {
 		return errors.New("Invalid do statement!")
 	}
@@ -444,7 +444,7 @@ func parseDoStatement(output *strings.Builder, tokens []tokenizer.Token, index *
 
 	WriteToken(output, tokens[*index], index)
 
-	if err := parseSubroutineCall(output, tokens, index); err != nil {
+	if err := compileSubroutineCall(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -458,7 +458,7 @@ func parseDoStatement(output *strings.Builder, tokens []tokenizer.Token, index *
 	return nil
 }
 
-func parseReturnStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileReturnStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "return" {
 		return errors.New("Invalid return statement!")
 	}
@@ -468,7 +468,7 @@ func parseReturnStatement(output *strings.Builder, tokens []tokenizer.Token, ind
 	WriteToken(output, tokens[*index], index)
 
 	if slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER, tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) {
-		if err := parseExpression(output, tokens, index); err != nil {
+		if err := compileExpression(output, tokens, index); err != nil {
 			return err
 		}
 	}
@@ -483,49 +483,49 @@ func parseReturnStatement(output *strings.Builder, tokens []tokenizer.Token, ind
 	return nil
 }
 
-func parseStatements(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileStatements(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD {
 		return nil
 	}
 
 	switch tokens[*index].Value {
 	case "let":
-		if err := parseLetStatement(output, tokens, index); err != nil {
+		if err := compileLetStatement(output, tokens, index); err != nil {
 			return err
 		}
 	case "if":
-		if err := parseIfStatement(output, tokens, index); err != nil {
+		if err := compileIfStatement(output, tokens, index); err != nil {
 			return err
 		}
 	case "while":
-		if err := parseWhileStatement(output, tokens, index); err != nil {
+		if err := compileWhileStatement(output, tokens, index); err != nil {
 			return err
 		}
 	case "do":
-		if err := parseDoStatement(output, tokens, index); err != nil {
+		if err := compileDoStatement(output, tokens, index); err != nil {
 			return err
 		}
 	case "return":
-		if err := parseReturnStatement(output, tokens, index); err != nil {
+		if err := compileReturnStatement(output, tokens, index); err != nil {
 			return err
 		}
 	default:
 		return errors.New("Invalid statement!")
 	}
 
-	return parseStatements(output, tokens, index)
+	return compileStatements(output, tokens, index)
 }
 
-func parseSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type == tokenizer.KEYWORD && tokens[*index].Value == "var" {
-		if err := parseVariableDeclaration(output, tokens, index); err != nil {
+		if err := compileVariableDeclaration(output, tokens, index); err != nil {
 			return err
 		}
 	}
 
 	output.WriteString("<statements>\n")
 
-	if err := parseStatements(output, tokens, index); err != nil {
+	if err := compileStatements(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -534,7 +534,7 @@ func parseSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, inde
 	return nil
 }
 
-func parseSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type != tokenizer.KEYWORD || !slices.Contains([]string{"constructor", "method", "function"}, tokens[*index].Value) {
 		return nil
 	}
@@ -562,7 +562,7 @@ func parseSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 	WriteToken(output, tokens[*index], index)
 	output.WriteString("<parameterList>\n")
 
-	if err := parseParameterList(output, tokens, index); err != nil {
+	if err := compileParameterList(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -581,7 +581,7 @@ func parseSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 
 	WriteToken(output, tokens[*index], index)
 
-	if err := parseSubroutineBody(output, tokens, index); err != nil {
+	if err := compileSubroutineBody(output, tokens, index); err != nil {
 		return err
 	}
 
@@ -593,10 +593,10 @@ func parseSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 	output.WriteString("</subroutineBody>\n")
 	output.WriteString("</subroutineDec>\n")
 
-	return parseSubroutineDeclaration(output, tokens, index)
+	return compileSubroutineDeclaration(output, tokens, index)
 }
 
-func parseClass(output *strings.Builder, tokens []tokenizer.Token) error {
+func compileClass(output *strings.Builder, tokens []tokenizer.Token) error {
 	index := 0
 
 	output.WriteString("<class>\n")
@@ -619,11 +619,11 @@ func parseClass(output *strings.Builder, tokens []tokenizer.Token) error {
 
 	WriteToken(output, tokens[index], &index)
 
-	if err := parseClassVarDec(output, tokens, &index); err != nil {
+	if err := compileClassVarDec(output, tokens, &index); err != nil {
 		return err
 	}
 
-	if err := parseSubroutineDeclaration(output, tokens, &index); err != nil {
+	if err := compileSubroutineDeclaration(output, tokens, &index); err != nil {
 		return err
 	}
 
@@ -640,7 +640,7 @@ func parseClass(output *strings.Builder, tokens []tokenizer.Token) error {
 func ParseTokens(tokens []tokenizer.Token) (string, error) {
 	var output strings.Builder
 
-	if err := parseClass(&output, tokens); err != nil {
+	if err := compileClass(&output, tokens); err != nil {
 		return "", err
 	}
 
