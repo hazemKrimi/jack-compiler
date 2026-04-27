@@ -1,4 +1,4 @@
-package parser
+package engine
 
 import (
 	"errors"
@@ -637,7 +637,7 @@ func compileClass(output *strings.Builder, tokens []tokenizer.Token) error {
 	return nil
 }
 
-func ParseTokens(tokens []tokenizer.Token) (string, error) {
+func Compile(tokens []tokenizer.Token) (string, error) {
 	var output strings.Builder
 
 	if err := compileClass(&output, tokens); err != nil {

@@ -26,7 +26,7 @@ func process(inputPath string) error {
 		return err
 	}
 
-	parsed, err := parser.ParseTokens(tokens)
+	compiled, err := engine.Compile(tokens)
 	
 	if err != nil {
 		return err
@@ -34,7 +34,7 @@ func process(inputPath string) error {
 
 	outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
 
-	if err := os.WriteFile(outputPath, []byte(parsed), 0644); err != nil {
+	if err := os.WriteFile(outputPath, []byte(compiled), 0644); err != nil {
 		return err
 	}
 
