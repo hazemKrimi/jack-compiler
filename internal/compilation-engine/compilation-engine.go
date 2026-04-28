@@ -7,95 +7,19 @@ import (
 	"strings"
 
 	"fmt"
+
+	"github.com/hazemKrimi/jack-compiler/internal/symbol-table"
 	"github.com/hazemKrimi/jack-compiler/internal/tokenizer"
 )
 
-type VariableKind int
-
-const (
-	STATIC VariableKind = iota
-	FIELD
-	ARG
-	VAR
-)
-
-type Variable struct {
-	Type       string
-	Kind       VariableKind
-	Count      int
-	IsDeclared bool
-	IsUsed     bool
-}
-
 var className string
-var classSymbolTable, subroutineSymbolTable map[string]Variable
-
-func countVariables(symbolTable *map[string]Variable, kind VariableKind) int {
-	count := -1
-
-	for _, variable := range *symbolTable {
-		if variable.Kind == kind {
-			count++
-		}
-	}
-
-	return count
-}
-
-func getVariable(symbolTables []*map[string]Variable, name string) (Variable, bool) {
-	for _, table := range symbolTables {
-		for key, variable := range *table {
-			if key == name {
-				return variable, true
-			}
-		}
-	}
-
-	return Variable{}, false
-}
-
-func useVariable(symbolTables []*map[string]Variable, name string) {
-	for _, table := range symbolTables {
-		for key, variable := range *table {
-			if key == name {
-				variable.IsUsed = true
-				(*table)[key] = variable
-				return
-			}
-		}
-	}
-}
-
-func writeImplicitThis(output *strings.Builder) error {
-	variable, found := getVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, "this")
-
-	if found {
-		tokenDefinition := "<implicitVariable> "
-		tokenDefinition += "name: this, "
-		tokenDefinition += "type: " + variable.Type + ", "
-		tokenDefinition += "kind: " + fmt.Sprint(variable.Kind) + ", "
-		tokenDefinition += "count: " + fmt.Sprint(variable.Count) + ", "
-		tokenDefinition += "declared: " + strconv.FormatBool(variable.IsDeclared) + ", "
-		tokenDefinition += "used: " + strconv.FormatBool(variable.IsUsed)
-		tokenDefinition += "</variable>\n"
-
-		if _, err := output.WriteString(tokenDefinition); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func appendVariable(symbolTable *map[string]Variable, name string, variableType string, kind VariableKind) {
-	(*symbolTable)[name] = Variable{Type: variableType, Kind: kind, Count: countVariables(symbolTable, kind) + 1, IsDeclared: true}
-}
+var classSymbolTable, subroutineSymbolTable map[string]table.Variable
 
 func writeToken(output *strings.Builder, token tokenizer.Token, index *int) error {
 	tokenDefinition := "<" + token.XML + "> "
 
 	if token.Type == tokenizer.IDENTIFIER {
-		variable, found := getVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, token.Value)
+		variable, found := table.GetVariable([]*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable}, token.Value)
 
 		if found {
 			tokenDefinition += "<variable>"
@@ -129,12 +53,12 @@ func compileClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index
 		return nil
 	}
 
-	var kind VariableKind
+	var kind table.VariableKind
 
 	if tokens[*index].Value == "static" {
-		kind = STATIC
+		kind = table.STATIC
 	} else {
-		kind = FIELD
+		kind = table.FIELD
 	}
 
 	output.WriteString("<classVarDec>\n")
@@ -152,7 +76,7 @@ func compileClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index
 		return errors.New("Invalid variable name!")
 	}
 
-	appendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
+	table.AppendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
 	writeToken(output, tokens[*index], index)
 
 	for tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
@@ -162,7 +86,7 @@ func compileClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index
 			return errors.New("Invalid variable name!")
 		}
 
-		appendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
+		table.AppendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
 		writeToken(output, tokens[*index], index)
 	}
 
@@ -182,7 +106,7 @@ func compileParameterList(output *strings.Builder, tokens []tokenizer.Token, ind
 	}
 
 	variableType := tokens[*index].Value
-	kind := ARG
+	kind := table.ARG
 
 	writeToken(output, tokens[*index], index)
 
@@ -190,7 +114,7 @@ func compileParameterList(output *strings.Builder, tokens []tokenizer.Token, ind
 		return errors.New("Invalid variable name!")
 	}
 
-	appendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
+	table.AppendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
 	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
@@ -216,7 +140,7 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 	}
 
 	variableType := tokens[*index].Value
-	kind := VAR
+	kind := table.VAR
 
 	writeToken(output, tokens[*index], index)
 
@@ -224,7 +148,7 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 		return errors.New("Invalid variable name!")
 	}
 
-	appendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
+	table.AppendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
 	writeToken(output, tokens[*index], index)
 
 	for tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
@@ -297,7 +221,7 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 
 	if slices.Contains([]tokenizer.TokenType{tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) || slices.Contains([]string{"true", "false", "null", "this"}, tokens[*index].Value) {
 		if tokens[*index].Value == "this" {
-			useVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
+			table.UseVariable([]*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
 		}
 
 		writeToken(output, tokens[*index], index)
@@ -324,7 +248,7 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 	}
 
 	if tokens[*index].Type == tokenizer.IDENTIFIER {
-		useVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
+		table.UseVariable([]*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
 		writeToken(output, tokens[*index], index)
 
 		if tokens[*index].Value == "[" {
@@ -400,7 +324,7 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 		return errors.New("Invalid variable name!")
 	}
 
-	useVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
+	table.UseVariable([]*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
 	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Value == "[" {
@@ -666,7 +590,7 @@ func compileSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, in
 }
 
 func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
-	subroutineSymbolTable = make(map[string]Variable)
+	subroutineSymbolTable = make(map[string]table.Variable)
 
 	if tokens[*index].Type != tokenizer.KEYWORD || !slices.Contains([]string{"constructor", "method", "function"}, tokens[*index].Value) {
 		return nil
@@ -699,10 +623,10 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 
 	if isMethod {
 		variableType := className
-		kind := ARG
+		kind := table.ARG
 
-		appendVariable(&subroutineSymbolTable, "this", variableType, kind)
-		writeImplicitThis(output)
+		table.AppendVariable(&subroutineSymbolTable, "this", variableType, kind)
+		table.WriteImplicitThis(output, []*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable})
 	}
 
 	if err := compileParameterList(output, tokens, index); err != nil {
@@ -742,7 +666,7 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 func compileClass(output *strings.Builder, tokens []tokenizer.Token) error {
 	index := 0
 
-	classSymbolTable = make(map[string]Variable)
+	classSymbolTable = make(map[string]table.Variable)
 
 	output.WriteString("<class>\n")
 
