@@ -30,7 +30,7 @@ type Variable struct {
 var className string
 var classSymbolTable, subroutineSymbolTable map[string]Variable
 
-func CountVariables(symbolTable *map[string]Variable, kind VariableKind) int {
+func countVariables(symbolTable *map[string]Variable, kind VariableKind) int {
 	count := -1
 
 	for _, variable := range *symbolTable {
@@ -42,7 +42,7 @@ func CountVariables(symbolTable *map[string]Variable, kind VariableKind) int {
 	return count
 }
 
-func GetVariable(symbolTables []*map[string]Variable, name string) (Variable, bool) {
+func getVariable(symbolTables []*map[string]Variable, name string) (Variable, bool) {
 	for _, table := range symbolTables {
 		for key, variable := range *table {
 			if key == name {
@@ -54,7 +54,7 @@ func GetVariable(symbolTables []*map[string]Variable, name string) (Variable, bo
 	return Variable{}, false
 }
 
-func UseVariable(symbolTables []*map[string]Variable, name string) {
+func useVariable(symbolTables []*map[string]Variable, name string) {
 	for _, table := range symbolTables {
 		for key, variable := range *table {
 			if key == name {
@@ -66,8 +66,8 @@ func UseVariable(symbolTables []*map[string]Variable, name string) {
 	}
 }
 
-func WriteImplicitThis(output *strings.Builder) error {
-	variable, found := GetVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, "this")
+func writeImplicitThis(output *strings.Builder) error {
+	variable, found := getVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, "this")
 
 	if found {
 		tokenDefinition := "<implicitVariable> "
@@ -87,15 +87,15 @@ func WriteImplicitThis(output *strings.Builder) error {
 	return nil
 }
 
-func AppendVariable(symbolTable *map[string]Variable, name string, variableType string, kind VariableKind) {
-	(*symbolTable)[name] = Variable{Type: variableType, Kind: kind, Count: CountVariables(symbolTable, kind) + 1, IsDeclared: true}
+func appendVariable(symbolTable *map[string]Variable, name string, variableType string, kind VariableKind) {
+	(*symbolTable)[name] = Variable{Type: variableType, Kind: kind, Count: countVariables(symbolTable, kind) + 1, IsDeclared: true}
 }
 
-func WriteToken(output *strings.Builder, token tokenizer.Token, index *int) error {
+func writeToken(output *strings.Builder, token tokenizer.Token, index *int) error {
 	tokenDefinition := "<" + token.XML + "> "
 
 	if token.Type == tokenizer.IDENTIFIER {
-		variable, found := GetVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, token.Value)
+		variable, found := getVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, token.Value)
 
 		if found {
 			tokenDefinition += "<variable>"
@@ -138,7 +138,7 @@ func compileClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index
 	}
 
 	output.WriteString("<classVarDec>\n")
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if !slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER}, tokens[*index].Type) && !slices.Contains([]string{"int", "char", "boolean"}, tokens[*index].Value) {
 		return errors.New("Invalid variable type name!")
@@ -146,31 +146,31 @@ func compileClassVarDec(output *strings.Builder, tokens []tokenizer.Token, index
 
 	variableType := tokens[*index].Value
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.IDENTIFIER {
 		return errors.New("Invalid variable name!")
 	}
 
-	AppendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
-	WriteToken(output, tokens[*index], index)
+	appendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
+	writeToken(output, tokens[*index], index)
 
 	for tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if tokens[*index].Type != tokenizer.IDENTIFIER {
 			return errors.New("Invalid variable name!")
 		}
 
-		AppendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
-		WriteToken(output, tokens[*index], index)
+		appendVariable(&classSymbolTable, tokens[*index].Value, variableType, kind)
+		writeToken(output, tokens[*index], index)
 	}
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ";" {
 		return errors.New("Missing semicolon!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("</classVarDec>\n")
 
 	return compileClassVarDec(output, tokens, index)
@@ -184,17 +184,17 @@ func compileParameterList(output *strings.Builder, tokens []tokenizer.Token, ind
 	variableType := tokens[*index].Value
 	kind := ARG
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.IDENTIFIER {
 		return errors.New("Invalid variable name!")
 	}
 
-	AppendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
-	WriteToken(output, tokens[*index], index)
+	appendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		return compileParameterList(output, tokens, index)
 	}
@@ -209,7 +209,7 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 
 	output.WriteString("<varDec>\n")
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if !slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER}, tokens[*index].Type) && !slices.Contains([]string{"int", "char", "boolean"}, tokens[*index].Value) {
 		return errors.New("Invalid variable type name!")
@@ -218,30 +218,30 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 	variableType := tokens[*index].Value
 	kind := VAR
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.IDENTIFIER {
 		return errors.New("Invalid variable name!")
 	}
 
-	AppendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
-	WriteToken(output, tokens[*index], index)
+	appendVariable(&subroutineSymbolTable, tokens[*index].Value, variableType, kind)
+	writeToken(output, tokens[*index], index)
 
 	for tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if tokens[*index].Type != tokenizer.IDENTIFIER {
 			return errors.New("Invalid variable name!")
 		}
 
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 	}
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ";" {
 		return errors.New("Missing semicolon!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("</varDec>\n")
 
 	return compileVariableDeclaration(output, tokens, index)
@@ -249,20 +249,20 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 
 func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Value == "." {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if tokens[*index].Type != tokenizer.IDENTIFIER {
 			return errors.New("Invalid subroutine name!")
 		}
 
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 	}
 
 	if tokens[*index].Value != "(" {
 		return errors.New("Missing subroutine call opening parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	output.WriteString("<expressionList>\n")
 
@@ -276,7 +276,7 @@ func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, in
 		return errors.New("Missing subroutine call closing parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	return nil
 }
@@ -285,7 +285,7 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 	output.WriteString("<term>\n")
 
 	if tokens[*index].Type == tokenizer.SYMBOL && slices.Contains([]string{"-", "~"}, tokens[*index].Value) {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if err := compileTerm(output, tokens, index); err != nil {
 			return err
@@ -297,17 +297,17 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 
 	if slices.Contains([]tokenizer.TokenType{tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) || slices.Contains([]string{"true", "false", "null", "this"}, tokens[*index].Value) {
 		if tokens[*index].Value == "this" {
-			UseVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
+			useVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
 		}
 
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 		output.WriteString("</term>\n")
 
 		return nil
 	}
 
 	if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "(" {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if err := compileExpression(output, tokens, index); err != nil {
 			return err
@@ -317,18 +317,18 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 			return errors.New("Invalid term!")
 		}
 
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 		output.WriteString("</term>\n")
 
 		return nil
 	}
 
 	if tokens[*index].Type == tokenizer.IDENTIFIER {
-		UseVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
-		WriteToken(output, tokens[*index], index)
+		useVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
+		writeToken(output, tokens[*index], index)
 
 		if tokens[*index].Value == "[" {
-			WriteToken(output, tokens[*index], index)
+			writeToken(output, tokens[*index], index)
 
 			if err := compileExpression(output, tokens, index); err != nil {
 				return err
@@ -338,7 +338,7 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 				return errors.New("Invalid term!")
 			}
 
-			WriteToken(output, tokens[*index], index)
+			writeToken(output, tokens[*index], index)
 		} else if slices.Contains([]string{"(", "."}, tokens[*index].Value) {
 			if err := compileSubroutineCall(output, tokens, index); err != nil {
 				return err
@@ -359,7 +359,7 @@ func compileExpression(output *strings.Builder, tokens []tokenizer.Token, index 
 	}
 
 	if slices.Contains([]string{"+", "-", "*", "/", "&amp;", "|", "&lt;", "&gt;", "="}, tokens[*index].Value) {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if err := compileTerm(output, tokens, index); err != nil {
 			return err
@@ -378,7 +378,7 @@ func compileExpressionList(output *strings.Builder, tokens []tokenizer.Token, in
 		}
 
 		if tokens[*index].Type == tokenizer.SYMBOL && tokens[*index].Value == "," {
-			WriteToken(output, tokens[*index], index)
+			writeToken(output, tokens[*index], index)
 
 			return compileExpressionList(output, tokens, index)
 		}
@@ -394,17 +394,17 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 
 	output.WriteString("<letStatement>\n")
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.IDENTIFIER {
 		return errors.New("Invalid variable name!")
 	}
 
-	UseVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
-	WriteToken(output, tokens[*index], index)
+	useVariable([]*map[string]Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Value == "[" {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if err := compileExpression(output, tokens, index); err != nil {
 			return err
@@ -414,14 +414,14 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 			return errors.New("Invalid expression!")
 		}
 
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 	}
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "=" {
 		return errors.New("Missing assignment!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if err := compileExpression(output, tokens, index); err != nil {
 		return err
@@ -431,7 +431,7 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 		return errors.New("Missing semicolon!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("</letStatement>\n")
 
 	return nil
@@ -444,13 +444,13 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 
 	output.WriteString("<ifStatement>\n")
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "(" {
 		return errors.New("Missing if statement opening parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if err := compileExpression(output, tokens, index); err != nil {
 		return err
@@ -460,13 +460,13 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 		return errors.New("Missing if statement closing parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "{" {
 		return errors.New("Missing if statement opening curly brace!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	output.WriteString("<statements>\n")
 
@@ -480,16 +480,16 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 		return errors.New("Missing if statement closing curly brace!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type == tokenizer.KEYWORD && tokens[*index].Value == "else" {
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 
 		if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "{" {
 			return errors.New("Missing if statement opening curly brace!")
 		}
 
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 		output.WriteString("<statements>\n")
 
 		if err := compileStatements(output, tokens, index); err != nil {
@@ -502,7 +502,7 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 			return errors.New("Missing if statement closing curly brace!")
 		}
 
-		WriteToken(output, tokens[*index], index)
+		writeToken(output, tokens[*index], index)
 	}
 
 	output.WriteString("</ifStatement>\n")
@@ -517,13 +517,13 @@ func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, in
 
 	output.WriteString("<whileStatement>\n")
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "(" {
 		return errors.New("Missing while statement opening parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if err := compileExpression(output, tokens, index); err != nil {
 		return err
@@ -533,13 +533,13 @@ func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, in
 		return errors.New("Missing while statement closing parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "{" {
 		return errors.New("Missing while statement opening curly brace!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	output.WriteString("<statements>\n")
 
@@ -553,7 +553,7 @@ func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, in
 		return errors.New("Missing while statement closing curly brace!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	output.WriteString("</whileStatement>\n")
 
@@ -567,13 +567,13 @@ func compileDoStatement(output *strings.Builder, tokens []tokenizer.Token, index
 
 	output.WriteString("<doStatement>\n")
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.IDENTIFIER {
 		return errors.New("Invalid variable name!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if err := compileSubroutineCall(output, tokens, index); err != nil {
 		return err
@@ -583,7 +583,7 @@ func compileDoStatement(output *strings.Builder, tokens []tokenizer.Token, index
 		return errors.New("Missing semicolon!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("</doStatement>\n")
 
 	return nil
@@ -596,7 +596,7 @@ func compileReturnStatement(output *strings.Builder, tokens []tokenizer.Token, i
 
 	output.WriteString("<returnStatement>\n")
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER, tokenizer.INT_CONST, tokenizer.STR_CONST}, tokens[*index].Type) {
 		if err := compileExpression(output, tokens, index); err != nil {
@@ -608,7 +608,7 @@ func compileReturnStatement(output *strings.Builder, tokens []tokenizer.Token, i
 		return errors.New("Missing semicolon!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("</returnStatement>\n")
 
 	return nil
@@ -676,33 +676,33 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 
 	output.WriteString("<subroutineDec>\n")
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if !slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER}, tokens[*index].Type) && !slices.Contains([]string{"void", "int", "char", "boolean"}, tokens[*index].Value) {
 		return errors.New("Invalid subroutine return type!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.IDENTIFIER {
 		return errors.New("Invalid subroutine name!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "(" {
 		return errors.New("Missing subroutine opening parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("<parameterList>\n")
 
 	if isMethod {
 		variableType := className
 		kind := ARG
 
-		AppendVariable(&subroutineSymbolTable, "this", variableType, kind)
-		WriteImplicitThis(output)
+		appendVariable(&subroutineSymbolTable, "this", variableType, kind)
+		writeImplicitThis(output)
 	}
 
 	if err := compileParameterList(output, tokens, index); err != nil {
@@ -715,14 +715,14 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 		return errors.New("Missing subroutine closing parenthese!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("<subroutineBody>\n")
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "{" {
 		return errors.New("Missing subroutine opening curly brace!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 
 	if err := compileSubroutineBody(output, tokens, index); err != nil {
 		return err
@@ -732,7 +732,7 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 		return errors.New("Missing subroutine closing curly brace!")
 	}
 
-	WriteToken(output, tokens[*index], index)
+	writeToken(output, tokens[*index], index)
 	output.WriteString("</subroutineBody>\n")
 	output.WriteString("</subroutineDec>\n")
 
@@ -750,7 +750,7 @@ func compileClass(output *strings.Builder, tokens []tokenizer.Token) error {
 		return errors.New("Jack file must contain one class!")
 	}
 
-	WriteToken(output, tokens[index], &index)
+	writeToken(output, tokens[index], &index)
 
 	if tokens[index].Type != tokenizer.IDENTIFIER {
 		return errors.New("Invalid class name!")
@@ -758,13 +758,13 @@ func compileClass(output *strings.Builder, tokens []tokenizer.Token) error {
 
 	className = tokens[index].Value
 
-	WriteToken(output, tokens[index], &index)
+	writeToken(output, tokens[index], &index)
 
 	if tokens[index].Type != tokenizer.SYMBOL || tokens[index].Value != "{" {
 		return errors.New("Missing class opening curly brace!")
 	}
 
-	WriteToken(output, tokens[index], &index)
+	writeToken(output, tokens[index], &index)
 
 	if err := compileClassVarDec(output, tokens, &index); err != nil {
 		return err
@@ -778,7 +778,7 @@ func compileClass(output *strings.Builder, tokens []tokenizer.Token) error {
 		return errors.New("Missing class closing curly brace!")
 	}
 
-	WriteToken(output, tokens[index], &index)
+	writeToken(output, tokens[index], &index)
 	output.WriteString("</class>\n")
 
 	return nil
