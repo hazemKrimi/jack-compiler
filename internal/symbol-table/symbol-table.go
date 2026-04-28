@@ -1,11 +1,5 @@
 package table
 
-import (
-	"fmt"
-	"strconv"
-	"strings"
-)
-
 type VariableKind int
 
 const (
@@ -57,27 +51,6 @@ func UseVariable(symbolTables []*map[string]Variable, name string) {
 			}
 		}
 	}
-}
-
-func WriteImplicitThis(output *strings.Builder, symbolTables []*map[string]Variable) error {
-	variable, found := GetVariable(symbolTables, "this")
-
-	if found {
-		tokenDefinition := "<implicitVariable> "
-		tokenDefinition += "name: this, "
-		tokenDefinition += "type: " + variable.Type + ", "
-		tokenDefinition += "kind: " + fmt.Sprint(variable.Kind) + ", "
-		tokenDefinition += "count: " + fmt.Sprint(variable.Count) + ", "
-		tokenDefinition += "declared: " + strconv.FormatBool(variable.IsDeclared) + ", "
-		tokenDefinition += "used: " + strconv.FormatBool(variable.IsUsed)
-		tokenDefinition += "</variable>\n"
-
-		if _, err := output.WriteString(tokenDefinition); err != nil {
-			return err
-		}
-	}
-
-	return nil
 }
 
 func AppendVariable(symbolTable *map[string]Variable, name string, variableType string, kind VariableKind) {

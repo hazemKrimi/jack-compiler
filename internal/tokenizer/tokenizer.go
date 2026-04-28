@@ -75,20 +75,7 @@ type Token struct {
 func NewToken(value string, tokenType TokenType) Token {
 	switch tokenType {
 	case SYMBOL:
-		var symbol string
-
-		switch value {
-		case "<":
-			symbol = "&lt;"
-		case ">":
-			symbol = "&gt;"
-		case "&":
-			symbol = "&amp;"
-		default:
-			symbol = value
-		}
-
-		return Token{Value: symbol, Type: tokenType, XML: "symbol"}
+		return Token{Value: value, Type: tokenType, XML: "symbol"}
 	case KEYWORD:
 		return Token{Value: value, Type: tokenType, XML: "keyword"}
 	case IDENTIFIER:

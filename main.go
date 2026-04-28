@@ -32,7 +32,7 @@ func process(inputPath string) error {
 		return err
 	}
 
-	outputPath := strings.Replace(inputPath, ".jack", ".xml", 1)
+	outputPath := strings.Replace(inputPath, ".jack", ".vm", 1)
 
 	if err := os.WriteFile(outputPath, []byte(compiled), 0644); err != nil {
 		return err

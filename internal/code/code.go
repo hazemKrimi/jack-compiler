@@ -54,7 +54,7 @@ func SegmentText(segment Segment) string {
 }
 
 func WritePush(output *strings.Builder, segment Segment, index int) error {
-	if _, err := output.WriteString("push " + SegmentText(segment) + " " + fmt.Sprint(index)); err != nil {
+	if _, err := output.WriteString("push " + SegmentText(segment) + " " + fmt.Sprint(index) + "\n"); err != nil {
 		return err
 	}
 
@@ -62,7 +62,7 @@ func WritePush(output *strings.Builder, segment Segment, index int) error {
 }
 
 func WritePop(output *strings.Builder, segment Segment, index int) error {
-	if _, err := output.WriteString("pop " + SegmentText(segment) + " " + fmt.Sprint(index)); err != nil {
+	if _, err := output.WriteString("pop " + SegmentText(segment) + " " + fmt.Sprint(index) + "\n"); err != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func WriteArithmeticLogical(output *strings.Builder, command ArithmeticLogicalCo
 		commandText = "not"
 	}
 
-	if _, err := output.WriteString(commandText); err != nil {
+	if _, err := output.WriteString(commandText + "\n"); err != nil {
 		return err
 	}
 
@@ -101,7 +101,7 @@ func WriteArithmeticLogical(output *strings.Builder, command ArithmeticLogicalCo
 }
 
 func WriteLabel(output *strings.Builder, label string) error {
-	if _, err := output.WriteString("label " + label); err != nil {
+	if _, err := output.WriteString("label " + label + "\n"); err != nil {
 		return err
 	}
 
@@ -109,7 +109,7 @@ func WriteLabel(output *strings.Builder, label string) error {
 }
 
 func WriteGoto(output *strings.Builder, label string) error {
-	if _, err := output.WriteString("goto " + label); err != nil {
+	if _, err := output.WriteString("goto " + label + "\n"); err != nil {
 		return err
 	}
 
@@ -117,7 +117,7 @@ func WriteGoto(output *strings.Builder, label string) error {
 }
 
 func WriteIfGoto(output *strings.Builder, label string) error {
-	if _, err := output.WriteString("if-goto " + label); err != nil {
+	if _, err := output.WriteString("if-goto " + label + "\n"); err != nil {
 		return err
 	}
 
@@ -125,7 +125,7 @@ func WriteIfGoto(output *strings.Builder, label string) error {
 }
 
 func WriteCall(output *strings.Builder, function string, args int) error {
-	if _, err := output.WriteString("call " + function + " " + fmt.Sprint(args)); err != nil {
+	if _, err := output.WriteString("call " + function + " " + fmt.Sprint(args) + "\n"); err != nil {
 		return err
 	}
 
@@ -133,7 +133,7 @@ func WriteCall(output *strings.Builder, function string, args int) error {
 }
 
 func WriteFunction(output *strings.Builder, function string, params int) error {
-	if _, err := output.WriteString("function " + function + " " + fmt.Sprint(params)); err != nil {
+	if _, err := output.WriteString("function " + function + " " + fmt.Sprint(params) + "\n"); err != nil {
 		return err
 	}
 
@@ -141,7 +141,7 @@ func WriteFunction(output *strings.Builder, function string, params int) error {
 }
 
 func WriteReturn(output *strings.Builder) error {
-	if _, err := output.WriteString("return"); err != nil {
+	if _, err := output.WriteString("return" + "\n"); err != nil {
 		return err
 	}
 
