@@ -64,7 +64,7 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 		}
 
 		if tokens[*index].Value == "this" {
-			variable, found := table.GetVariable([]*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable}, tokens[*index].Value)
+			variable, found := table.GetVariable([]*map[string]table.Variable{&subroutineSymbolTable}, tokens[*index].Value)
 
 			if !found {
 				return errors.New("Invalid identifier!")
@@ -110,11 +110,13 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 			return errors.New("Invalid identifier!")
 		}
 
+		var identifier string
+
 		if found {
 			code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
+		} else {
+			identifier = tokens[*index].Value
 		}
-
-		identifier := tokens[*index].Value
 
 		(*index)++
 
@@ -281,20 +283,9 @@ func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, in
 	var class string
 	var function string
 
-	isMethod := false
-
 	if tokens[*index].Value == "." {
-		variable, found := table.GetVariable([]*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable}, identifier)
 
-		if found {
-			code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
-			code.WritePop(output, code.ARGUMENT, 0)
-
-			isMethod = true
-			class = variable.Type
-		} else {
-			class = identifier
-		}
+		class = identifier
 
 		(*index)++
 
@@ -321,10 +312,6 @@ func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, in
 
 	if tokens[*index].Value != ")" {
 		return errors.New("Missing subroutine call closing parenthese!")
-	}
-
-	if isMethod {
-		args++
 	}
 
 	code.WriteCall(output, function, args)
@@ -388,6 +375,11 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 }
 
 func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+	endLabel := "IF_END_" + fmt.Sprint(ifLabelIndex)
+	elseLabel := "IF_ELSE_" + fmt.Sprint(ifLabelIndex)
+
+	ifLabelIndex++
+
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "if" {
 		return errors.New("Invalid if statement!")
 	}
@@ -405,7 +397,7 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 	}
 
 	code.WriteArithmeticLogical(output, code.NOT)
-	code.WriteIfGoto(output, "IF_ELSE_"+fmt.Sprint(ifLabelIndex))
+	code.WriteIfGoto(output, elseLabel)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ")" {
 		return errors.New("Missing if statement closing parenthese!")
@@ -423,7 +415,7 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 		return err
 	}
 
-	code.WriteGoto(output, "IF_END_"+fmt.Sprint(ifLabelIndex))
+	code.WriteGoto(output, endLabel)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "}" {
 		return errors.New("Missing if statement closing curly brace!")
@@ -440,7 +432,7 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 
 		(*index)++
 
-		code.WriteLabel(output, "IF_ELSE_"+fmt.Sprint(ifLabelIndex))
+		code.WriteLabel(output, elseLabel)
 
 		if err := compileStatements(output, tokens, index); err != nil {
 			return err
@@ -453,13 +445,17 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 		(*index)++
 	}
 
-	code.WriteLabel(output, "IF_END_"+fmt.Sprint(ifLabelIndex))
-	ifLabelIndex++
+	code.WriteLabel(output, endLabel)
 
 	return nil
 }
 
 func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+	startLabel := "WHILE_START_"+fmt.Sprint(whileLabelIndex)
+	endLabel := "WHILE_END_"+fmt.Sprint(whileLabelIndex)
+
+	whileLabelIndex++
+
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "while" {
 		return errors.New("Invalid while statement!")
 	}
@@ -472,14 +468,14 @@ func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, in
 
 	(*index)++
 
-	code.WriteLabel(output, "WHILE_START_"+fmt.Sprint(whileLabelIndex))
+	code.WriteLabel(output, startLabel)
 
 	if err := compileExpression(output, tokens, index); err != nil {
 		return err
 	}
 
 	code.WriteArithmeticLogical(output, code.NOT)
-	code.WriteIfGoto(output, "WHILE_END_"+fmt.Sprint(whileLabelIndex))
+	code.WriteIfGoto(output, endLabel)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ")" {
 		return errors.New("Missing while statement closing parenthese!")
@@ -497,14 +493,14 @@ func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, in
 		return err
 	}
 
-	code.WriteGoto(output, "WHILE_START_"+fmt.Sprint(whileLabelIndex))
+	code.WriteGoto(output, startLabel)
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "}" {
 		return errors.New("Missing while statement closing curly brace!")
 	}
 
-	code.WriteLabel(output, "WHILE_END_"+fmt.Sprint(whileLabelIndex))
-	whileLabelIndex++
+	code.WriteLabel(output, endLabel)
+
 	(*index)++
 
 	return nil
@@ -604,7 +600,7 @@ func compileSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, in
 		}
 	}
 
-	code.WriteFunction(output, className+"."+function, table.CountVariables(&subroutineSymbolTable, table.VAR) + 1)
+	code.WriteFunction(output, className+"."+function, table.CountVariables(&subroutineSymbolTable, table.VAR)+1)
 
 	if isMethod {
 		code.WritePush(output, code.ARGUMENT, 0)
