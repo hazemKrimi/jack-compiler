@@ -32,6 +32,16 @@ func segmentFromVariableKind(kind table.VariableKind) code.Segment {
 	return -1
 }
 
+func isMethodName(tokens []tokenizer.Token, identifier string) bool {
+	for index, token := range tokens {
+		if token.Value == identifier && index >= 2 && tokens[index-2].Value == "method" {
+			return true
+		}
+	}
+
+	return false
+}
+
 func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
 	if tokens[*index].Type == tokenizer.SYMBOL && slices.Contains([]string{"-", "~"}, tokens[*index].Value) {
 		op := tokens[*index].Value
@@ -66,11 +76,11 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 		if tokens[*index].Value == "this" {
 			variable, found := table.GetVariable([]*map[string]table.Variable{&subroutineSymbolTable}, tokens[*index].Value)
 
-			if !found {
-				return errors.New("Invalid identifier!")
+			if found {
+				code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
+			} else {
+				code.WritePush(output, code.POINTER, 0)
 			}
-
-			code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
 		}
 
 		if tokens[*index].Value == "true" {
@@ -112,7 +122,7 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 
 		var identifier string
 
-		if found {
+		if found && !slices.Contains([]string{"(", "."}, tokens[(*index)+1].Value) {
 			code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
 		} else {
 			identifier = tokens[*index].Value
@@ -282,10 +292,19 @@ func compileVariableDeclaration(output *strings.Builder, tokens []tokenizer.Toke
 func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, index *int, identifier string) error {
 	var class string
 	var function string
+	var subroutine string
 
-	if tokens[*index].Value == "." {
+	instanceCallingMethod := false
 
-		class = identifier
+	switch tokens[*index].Value {
+	case ".":
+		variable, found := table.GetVariable([]*map[string]table.Variable{&subroutineSymbolTable, &classSymbolTable}, identifier)
+
+		if found {
+			class = variable.Type
+		} else {
+			class = identifier
+		}
 
 		(*index)++
 
@@ -293,9 +312,23 @@ func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, in
 			return errors.New("Invalid subroutine name!")
 		}
 
-		function = class + "." + tokens[*index].Value
+		subroutine = tokens[*index].Value
+		function = class + "." + subroutine
+
+		// This assumes that the called subroutine is a method for now.
+		if found {
+			code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
+			instanceCallingMethod = true
+		}
 
 		(*index)++
+	case "(":
+		subroutine = identifier
+		function = className + "." + identifier
+
+		if isMethodName(tokens, subroutine) {
+			code.WritePush(output, code.POINTER, 0)
+		}
 	}
 
 	if tokens[*index].Value != "(" {
@@ -312,6 +345,10 @@ func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, in
 
 	if tokens[*index].Value != ")" {
 		return errors.New("Missing subroutine call closing parenthese!")
+	}
+
+	if isMethodName(tokens, subroutine) || instanceCallingMethod {
+		args++
 	}
 
 	code.WriteCall(output, function, args)
@@ -375,7 +412,6 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 }
 
 func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
-	endLabel := "IF_END_" + fmt.Sprint(ifLabelIndex)
 	elseLabel := "IF_ELSE_" + fmt.Sprint(ifLabelIndex)
 
 	ifLabelIndex++
@@ -415,13 +451,15 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 		return err
 	}
 
-	code.WriteGoto(output, endLabel)
-
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "}" {
 		return errors.New("Missing if statement closing curly brace!")
 	}
 
 	(*index)++
+
+	if tokens[*index].Value != "else" {
+		code.WriteLabel(output, elseLabel)
+	}
 
 	if tokens[*index].Type == tokenizer.KEYWORD && tokens[*index].Value == "else" {
 		(*index)++
@@ -445,14 +483,12 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 		(*index)++
 	}
 
-	code.WriteLabel(output, endLabel)
-
 	return nil
 }
 
 func compileWhileStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
-	startLabel := "WHILE_START_"+fmt.Sprint(whileLabelIndex)
-	endLabel := "WHILE_END_"+fmt.Sprint(whileLabelIndex)
+	startLabel := "WHILE_START_" + fmt.Sprint(whileLabelIndex)
+	endLabel := "WHILE_END_" + fmt.Sprint(whileLabelIndex)
 
 	whileLabelIndex++
 
@@ -593,7 +629,7 @@ func compileStatements(output *strings.Builder, tokens []tokenizer.Token, index 
 	return compileStatements(output, tokens, index)
 }
 
-func compileSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, index *int, function string, isMethod bool) error {
+func compileSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, index *int, function string, isMethod bool, isConstructor bool) error {
 	if tokens[*index].Type == tokenizer.KEYWORD && tokens[*index].Value == "var" {
 		if err := compileVariableDeclaration(output, tokens, index); err != nil {
 			return err
@@ -601,6 +637,12 @@ func compileSubroutineBody(output *strings.Builder, tokens []tokenizer.Token, in
 	}
 
 	code.WriteFunction(output, className+"."+function, table.CountVariables(&subroutineSymbolTable, table.VAR)+1)
+
+	if isConstructor {
+		code.WritePush(output, code.CONSTANT, table.CountVariables(&classSymbolTable, table.FIELD)+1)
+		code.WriteCall(output, "Memory.alloc", 1)
+		code.WritePop(output, code.POINTER, 0)
+	}
 
 	if isMethod {
 		code.WritePush(output, code.ARGUMENT, 0)
@@ -622,6 +664,7 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 	}
 
 	isMethod := tokens[*index].Value == "method"
+	isConstructor := tokens[*index].Value == "constructor"
 
 	(*index)++
 
@@ -668,7 +711,7 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 
 	(*index)++
 
-	if err := compileSubroutineBody(output, tokens, index, function, isMethod); err != nil {
+	if err := compileSubroutineBody(output, tokens, index, function, isMethod, isConstructor); err != nil {
 		return err
 	}
 
