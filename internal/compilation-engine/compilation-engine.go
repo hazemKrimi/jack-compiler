@@ -232,7 +232,7 @@ func compileExpressionList(output *strings.Builder, tokens []tokenizer.Token, in
 }
 
 func compileParameterList(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
-	if !slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER}, tokens[*index].Type) || !slices.Contains([]string{"int", "char", "boolean"}, tokens[*index].Value) {
+	if !slices.Contains([]tokenizer.TokenType{tokenizer.KEYWORD, tokenizer.IDENTIFIER}, tokens[*index].Type) && !slices.Contains([]string{"int", "char", "boolean"}, tokens[*index].Value) {
 		return nil
 	}
 
@@ -733,6 +733,7 @@ func compileSubroutineDeclaration(output *strings.Builder, tokens []tokenizer.To
 	}
 
 	if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != ")" {
+		fmt.Println(tokens[*index].Value, *index)
 		return errors.New("Missing subroutine closing parenthese!")
 	}
 
