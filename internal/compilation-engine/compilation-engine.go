@@ -73,6 +73,16 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 			code.WritePush(output, code.CONSTANT, int(number))
 		}
 
+		if tokens[*index].Type == tokenizer.STR_CONST {
+			code.WritePush(output, code.CONSTANT, len(tokens[*index].Value))
+			code.WriteCall(output, "String.new", 1)
+
+			for _, char := range tokens[*index].Value {
+				code.WritePush(output, code.CONSTANT, int(char))
+				code.WriteCall(output, "String.appendChar", 2)
+			}
+		}
+
 		if tokens[*index].Value == "this" {
 			variable, found := table.GetVariable([]*map[string]table.Variable{&subroutineSymbolTable}, tokens[*index].Value)
 
@@ -140,6 +150,10 @@ func compileTerm(output *strings.Builder, tokens []tokenizer.Token, index *int) 
 			if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "]" {
 				return errors.New("Invalid term!")
 			}
+
+			code.WriteArithmeticLogical(output, code.ADD)
+			code.WritePop(output, code.POINTER, 1)
+			code.WritePush(output, code.THAT, 0)
 
 			(*index)++
 		} else if slices.Contains([]string{"(", "."}, tokens[*index].Value) {
@@ -359,6 +373,8 @@ func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, in
 }
 
 func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+	var isArrayAccess bool
+
 	if tokens[*index].Type != tokenizer.KEYWORD || tokens[*index].Value != "let" {
 		return errors.New("Invalid let statement!")
 	}
@@ -378,6 +394,10 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 	(*index)++
 
 	if tokens[*index].Value == "[" {
+		isArrayAccess = true
+
+		code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
+
 		(*index)++
 
 		if err := compileExpression(output, tokens, index); err != nil {
@@ -387,6 +407,8 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 		if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "]" {
 			return errors.New("Invalid expression!")
 		}
+
+		code.WriteArithmeticLogical(output, code.ADD)
 
 		(*index)++
 	}
@@ -405,7 +427,15 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 		return errors.New("Missing semicolon!")
 	}
 
-	code.WritePop(output, segmentFromVariableKind(variable.Kind), variable.Count)
+	if isArrayAccess {
+		code.WritePop(output, code.TEMP, 0)
+		code.WritePop(output, code.POINTER, 1)
+		code.WritePush(output, code.TEMP, 0)
+		code.WritePop(output, code.THAT, 0)
+	} else {
+		code.WritePop(output, segmentFromVariableKind(variable.Kind), variable.Count)
+	}
+
 	(*index)++
 
 	return nil
