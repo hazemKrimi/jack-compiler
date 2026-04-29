@@ -315,7 +315,7 @@ func compileSubroutineCall(output *strings.Builder, tokens []tokenizer.Token, in
 		subroutine = tokens[*index].Value
 		function = class + "." + subroutine
 
-		// This assumes that the called subroutine is a method for now.
+		// Assumes that the called subroutine of a class instance is a method.
 		if found {
 			code.WritePush(output, segmentFromVariableKind(variable.Kind), variable.Count)
 			instanceCallingMethod = true
@@ -412,6 +412,7 @@ func compileLetStatement(output *strings.Builder, tokens []tokenizer.Token, inde
 }
 
 func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index *int) error {
+	endLabel := "IF_END_" + fmt.Sprint(ifLabelIndex)
 	elseLabel := "IF_ELSE_" + fmt.Sprint(ifLabelIndex)
 
 	ifLabelIndex++
@@ -459,9 +460,8 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 
 	if tokens[*index].Value != "else" {
 		code.WriteLabel(output, elseLabel)
-	}
-
-	if tokens[*index].Type == tokenizer.KEYWORD && tokens[*index].Value == "else" {
+		code.WriteGoto(output, endLabel)
+	} else if tokens[*index].Type == tokenizer.KEYWORD && tokens[*index].Value == "else" {
 		(*index)++
 
 		if tokens[*index].Type != tokenizer.SYMBOL || tokens[*index].Value != "{" {
@@ -470,6 +470,7 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 
 		(*index)++
 
+		code.WriteGoto(output, endLabel)
 		code.WriteLabel(output, elseLabel)
 
 		if err := compileStatements(output, tokens, index); err != nil {
@@ -482,6 +483,8 @@ func compileIfStatement(output *strings.Builder, tokens []tokenizer.Token, index
 
 		(*index)++
 	}
+
+	code.WriteLabel(output, endLabel)
 
 	return nil
 }
