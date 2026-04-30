@@ -1,6 +1,6 @@
 # Jack Compiler
 
-Compiler from The Jack language to The Hack platform (Nand2Tetris Part 2)
+This is a compiler made as an assignment for the [Nand To Tetris Course: Part 2](https://nand2tetris.org/project10).
 
 ## Requirements
 
@@ -31,3 +31,7 @@ go build -o out
 ```
 
 You will find the executable in the `out` directory.
+
+## Testing
+
+You can download Jack files to test the compiler against from the [Nand To Tetris website](https://www.nand2tetris.org/software).
